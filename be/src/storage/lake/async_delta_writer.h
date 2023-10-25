@@ -43,6 +43,14 @@ class AsyncDeltaWriter {
     friend class AsyncDeltaWriterBuilder;
 
 public:
+    constexpr static const int64_t kMillisecondsPerSecond = 1000;
+    constexpr static const int64_t kSecondsPerMinute = 60;
+
+    struct Options {
+        // default value is 10 minutes
+        int64_t timeout_ms = 10 * kSecondsPerMinute * kMillisecondsPerSecond;
+    };
+
     using Ptr = std::unique_ptr<AsyncDeltaWriter>;
     using Callback = std::function<void(Status st)>;
 
@@ -65,12 +73,12 @@ public:
     // [thread-safe]
     //
     // TODO: Change signature to `Future<Status> write(Chunk*, uint32_t*, uint32_t)`
-    void write(const Chunk* chunk, const uint32_t* indexes, uint32_t indexes_size, Callback cb);
+    void write(const Options& options, const Chunk* chunk, const uint32_t* indexes, uint32_t indexes_size, Callback cb);
 
     // This method will flush all the records in memtable to disk.
     //
     // [thread-safe]
-    void flush(Callback cb);
+    void flush(const Options& options, Callback cb);
 
     // If the AsyncDeltaWriter has been `close()`ed, |cb| will be invoked immediately
     // in the caller's thread with an error status.
@@ -78,7 +86,7 @@ public:
     // [thread-safe]
     //
     // TODO: Change signature to `Future<Status> finish()`
-    void finish(Callback cb);
+    void finish(const Options& options, Callback cb);
 
     // This method will wait for all running tasks completed.
     //

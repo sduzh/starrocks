@@ -44,6 +44,8 @@ namespace starrocks::lake {
 using namespace starrocks;
 
 class LakeAsyncDeltaWriterTest : public TestBase {
+    using Options = AsyncDeltaWriter::Options;
+
 public:
     LakeAsyncDeltaWriterTest() : TestBase(kTestDirectory), _partition_id(next_id()) {
         _tablet_metadata = std::make_unique<TabletMetadata>();
@@ -202,11 +204,11 @@ TEST_F(LakeAsyncDeltaWriterTest, test_write) {
 
     CountDownLatch latch(1);
     // Write
-    delta_writer->write(&chunk0, indexes.data(), indexes.size(), [&](const Status& st) { ASSERT_OK(st); });
+    delta_writer->write(Options(), &chunk0, indexes.data(), indexes.size(), [&](const Status& st) { ASSERT_OK(st); });
     // Write
-    delta_writer->write(&chunk0, indexes.data(), indexes.size(), [&](const Status& st) { ASSERT_OK(st); });
+    delta_writer->write(Options(), &chunk0, indexes.data(), indexes.size(), [&](const Status& st) { ASSERT_OK(st); });
     // finish
-    delta_writer->finish([&](const Status& st) {
+    delta_writer->finish(Options(), [&](const Status& st) {
         ASSERT_OK(st);
         latch.count_down();
     });
@@ -293,7 +295,8 @@ TEST_F(LakeAsyncDeltaWriterTest, test_write_concurrently) {
             std::this_thread::yield();
         }
         for (int i = 0; i < kChunksPerThread; i++) {
-            delta_writer->write(&chunk0, indexes.data(), indexes.size(), [&](const Status& st) { ASSERT_OK(st); });
+            delta_writer->write(Options(), &chunk0, indexes.data(), indexes.size(),
+                                [&](const Status& st) { ASSERT_OK(st); });
         }
     };
 
@@ -308,7 +311,7 @@ TEST_F(LakeAsyncDeltaWriterTest, test_write_concurrently) {
 
     // finish
     CountDownLatch latch(1);
-    delta_writer->finish([&](const Status& st) {
+    delta_writer->finish(Options(), [&](const Status& st) {
         ASSERT_OK(st);
         latch.count_down();
     });
@@ -389,7 +392,7 @@ TEST_F(LakeAsyncDeltaWriterTest, test_write_after_close) {
 
     auto tid = std::this_thread::get_id();
     // write()
-    delta_writer->write(&chunk0, indexes.data(), indexes.size(), [&](const Status& st) {
+    delta_writer->write(Options(), &chunk0, indexes.data(), indexes.size(), [&](const Status& st) {
         ASSERT_ERROR(st);
         ASSERT_EQ(tid, std::this_thread::get_id());
     });
@@ -425,7 +428,7 @@ TEST_F(LakeAsyncDeltaWriterTest, test_finish_after_close) {
 
     auto tid = std::this_thread::get_id();
     // finish()
-    delta_writer->finish([&](const Status& st) {
+    delta_writer->finish(Options(), [&](const Status& st) {
         ASSERT_ERROR(st);
         ASSERT_EQ(tid, std::this_thread::get_id());
     });
@@ -523,7 +526,7 @@ TEST_F(LakeAsyncDeltaWriterTest, test_concurrent_write_and_close) {
 
     auto tid = std::this_thread::get_id();
     // write()
-    delta_writer->write(&chunk0, indexes.data(), indexes.size(), [&](const Status& st) {
+    delta_writer->write(Options(), &chunk0, indexes.data(), indexes.size(), [&](const Status& st) {
         ASSERT_ERROR(st);
         ASSERT_NE(tid, std::this_thread::get_id());
     });
