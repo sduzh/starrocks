@@ -165,6 +165,8 @@ public:
 
     std::string MetricsAsJSON() const;
 
+    std::string MetricsAsKeyValuePairs() const;
+
     // Attaches the given trace which will get appended at the end when Dumping.
     //
     // The 'label' does not necessarily have to be unique, and is used to identify
@@ -184,6 +186,7 @@ public:
     static void DumpCurrentTrace();
 
     TraceMetrics* metrics() { return &metrics_; }
+
     const TraceMetrics& metrics() const { return metrics_; }
 
 private:
@@ -204,6 +207,8 @@ private:
     void AddEntry(TraceEntry* entry);
 
     void MetricsToJSON(rapidjson::Writer<rapidjson::StringBuffer>* jw) const;
+
+    void MetricsToKeyValuePairs(std::string* result) const;
 
     // TODO(yingchun): now we didn't import Arena, instead, we use manual malloc() and free().
     // std::unique_ptr<ThreadSafeArena> arena_;

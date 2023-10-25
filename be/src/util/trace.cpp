@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 
+#include "gutil/strings/join.h"
 #include "gutil/strings/substitute.h"
 #include "gutil/walltime.h"
 #include "util/logging.h"
@@ -185,7 +186,6 @@ std::string Trace::DumpToString(int flags) const {
 }
 
 std::string Trace::MetricsAsJSON() const {
-    // TODO(yingchun): simplily implement here, we could import JsonWriter in the future.
     rapidjson::StringBuffer buf;
     rapidjson::Writer<rapidjson::StringBuffer> jw(buf);
     MetricsToJSON(&jw);
@@ -246,6 +246,37 @@ void Trace::AddChildTrace(StringPiece label, Trace* child_trace) {
 std::vector<std::pair<StringPiece, scoped_refptr<Trace>>> Trace::ChildTraces() const {
     std::lock_guard<SpinLock> l(lock_);
     return child_traces_;
+}
+
+std::string Trace::MetricsAsKeyValuePairs() const {
+    std::string result;
+    MetricsToKeyValuePairs(&result);
+    return result;
+}
+
+void Trace::MetricsToKeyValuePairs(std::string* result) const {
+    // Convert into a map with 'std::string' keys instead of 'const char*'
+    // keys, so that the results are in a consistent (sorted) order.
+    // std::map<string, int64_t> counters;
+    // for (const auto& entry : metrics_.Get()) {
+    //     counters[entry.first] = entry.second;
+    // }
+
+    JoinKeysAndValuesIterator(metrics_.Get().begin(), metrics_.Get().end(), ": ", " ", result);
+
+    std::vector<pair<StringPiece, scoped_refptr<Trace>>> child_traces;
+    {
+        std::lock_guard<SpinLock> l(lock_);
+        child_traces = child_traces_;
+    }
+
+    if (!child_traces.empty()) {
+        result->append(" child traces{");
+        for (const auto& e : child_traces) {
+            e.second->MetricsToKeyValuePairs(result);
+        }
+        result->append("}");
+    }
 }
 
 } // namespace starrocks

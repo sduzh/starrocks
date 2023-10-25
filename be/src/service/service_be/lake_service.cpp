@@ -184,6 +184,8 @@ void LakeServiceImpl::publish_version(::google::protobuf::RpcController* control
 
             auto res = lake::publish_version(_tablet_mgr, tablet_id, base_version, new_version, txns, commit_time);
             if (res.ok()) {
+                VLOG_IF(5, sub_trace != nullptr) << sub_trace->MetricsAsKeyValuePairs();
+
                 auto metadata = std::move(res).value();
                 auto score = compaction_score(metadata);
                 std::lock_guard l(response_mtx);
