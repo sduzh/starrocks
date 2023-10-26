@@ -675,7 +675,7 @@ public class TransactionState implements Writable {
 
     // return true if txn is running but timeout
     public boolean isTimeout(long currentMillis) {
-        return (transactionStatus == TransactionStatus.PREPARE && currentMillis - prepareTime > timeoutMs)
+        return (transactionStatus == TransactionStatus.PREPARE && currentMillis - prepareTime > 5/*timeoutMs*/)
                 || (transactionStatus == TransactionStatus.PREPARED && (currentMillis - commitTime)
                 / 1000 > Config.prepared_transaction_default_timeout_second);
     }
