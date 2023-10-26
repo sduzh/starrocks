@@ -65,6 +65,7 @@ import com.starrocks.thrift.TTaskType;
 import com.starrocks.transaction.GlobalTransactionMgr;
 import io.opentelemetry.api.trace.StatusCode;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -377,7 +378,12 @@ public class LakeTableSchemaChangeJob extends AlterJobV2 {
             LakeTable table = getTableOrThrow(db, tableId);
             Preconditions.checkState(table.getState() == OlapTable.OlapTableState.SCHEMA_CHANGE);
             watershedTxnId = getNextTransactionId();
+            ThreadUtil.sleepAtLeastIgnoreInterrupts(3000);
             addShadowIndexToCatalog(table);
+            Long nextTxnId = getNextTransactionId();
+            if (nextTxnId != watershedTxnId + 1) {
+                LOG.warn("transaction id has changed from {} to {}", watershedTxnId, nextTxnId);
+            }
         }
 
         jobState = JobState.WAITING_TXN;
