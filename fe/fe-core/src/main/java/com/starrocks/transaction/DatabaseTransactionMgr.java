@@ -65,6 +65,7 @@ import com.starrocks.meta.lock.LockType;
 import com.starrocks.meta.lock.Locker;
 import com.starrocks.metric.MetricRepo;
 import com.starrocks.persist.EditLog;
+import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.persist.metablock.SRMetaBlockException;
 import com.starrocks.persist.metablock.SRMetaBlockWriter;
 import com.starrocks.server.GlobalStateMgr;
@@ -744,8 +745,13 @@ public class DatabaseTransactionMgr {
                 Map<Long, PartitionCommitInfo> versions = new HashMap<>();
                 long tableId = -1;
                 if (states.size() != 0) {
-                    tableId = states.get(0).getTableIdList().get(0);
-                    versions.putAll(states.get(0).getTableCommitInfo(tableId).getIdToPartitionCommitInfo());
+                    try {
+                        tableId = states.get(0).getTableIdList().get(0);
+                        versions.putAll(states.get(0).getTableCommitInfo(tableId).getIdToPartitionCommitInfo());
+                    } catch (NullPointerException e) {
+                        LOG.error("Encountered npe: {}", GsonUtils.GSON.toJson(states));
+                        throw e;
+                    }
                 }
 
                 boolean consecutive = true;

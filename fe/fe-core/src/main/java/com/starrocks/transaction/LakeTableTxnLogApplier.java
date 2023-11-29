@@ -22,6 +22,7 @@ import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.lake.compaction.CompactionMgr;
 import com.starrocks.lake.compaction.PartitionIdentifier;
 import com.starrocks.lake.compaction.Quantiles;
+import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.optimizer.statistics.IDictManager;
 import org.apache.logging.log4j.LogManager;
@@ -56,6 +57,9 @@ public class LakeTableTxnLogApplier implements TransactionLogApplier {
         CompactionMgr compactionManager = GlobalStateMgr.getCurrentState().getCompactionMgr();
         for (PartitionCommitInfo partitionCommitInfo : commitInfo.getIdToPartitionCommitInfo().values()) {
             PhysicalPartition partition = table.getPhysicalPartition(partitionCommitInfo.getPartitionId());
+            if (partition == null) {
+                continue;
+            }
             long version = partitionCommitInfo.getVersion();
             long versionTime = partitionCommitInfo.getVersionTime();
             Quantiles compactionScore = partitionCommitInfo.getCompactionScore();
@@ -95,9 +99,14 @@ public class LakeTableTxnLogApplier implements TransactionLogApplier {
     }
 
     public void applyVisibleLogBatch(TransactionStateBatch txnStateBatch, Database db) {
-        for (TransactionState txnState : txnStateBatch.getTransactionStates()) {
-            TableCommitInfo tableCommitInfo = txnState.getTableCommitInfo(txnStateBatch.getTableId());
-            applyVisibleLog(txnState, tableCommitInfo, db);
+        try {
+            for (TransactionState txnState : txnStateBatch.getTransactionStates()) {
+                TableCommitInfo tableCommitInfo = txnState.getTableCommitInfo(txnStateBatch.getTableId());
+                applyVisibleLog(txnState, tableCommitInfo, db);
+            }
+        } catch (Throwable t) {
+            LOG.error(GsonUtils.GSON.toJson(txnStateBatch.getTransactionStates()));
+            throw t;
         }
     }
 }

@@ -46,8 +46,14 @@ public class TransactionStateBatch implements Writable {
     }
 
     public void setCompactionScore(long tableId, long partitionId, Quantiles quantiles) {
-        transactionStates.stream().forEach(transactionState -> transactionState.getTableCommitInfo(tableId).
-                getPartitionCommitInfo(partitionId).setCompactionScore(quantiles));
+        for (TransactionState state : transactionStates) {
+            TableCommitInfo info = Objects.requireNonNull(state.getTableCommitInfo(tableId),
+                    String.format("tabletCommitInfo of id %d is null", tableId));
+            PartitionCommitInfo partitionCommitInfo = info.getPartitionCommitInfo(partitionId);
+            if (partitionCommitInfo != null) {
+                partitionCommitInfo.setCompactionScore(quantiles);
+            }
+        }
     }
 
     public void setTransactionVisibleInfo() {

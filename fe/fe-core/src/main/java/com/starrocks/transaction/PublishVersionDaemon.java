@@ -150,6 +150,7 @@ public class PublishVersionDaemon extends FrontendDaemon {
                 }
             }
         } catch (Throwable t) {
+            t.printStackTrace();
             LOG.error("errors while publish version to all backends", t);
         }
     }

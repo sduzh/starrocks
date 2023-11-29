@@ -765,6 +765,7 @@ public class TransactionState implements Writable {
         if (tabletCommitInfos != null) {
             sb.append(" tabletCommitInfos size: ").append(tabletCommitInfos.size());
         }
+        sb.append(" tableCommitInfo: ").append(GsonUtils.GSON.toJson(tabletCommitInfos));
         return sb.toString();
     }
 
