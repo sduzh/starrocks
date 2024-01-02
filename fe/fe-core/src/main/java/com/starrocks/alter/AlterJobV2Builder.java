@@ -86,6 +86,11 @@ public abstract class AlterJobV2Builder {
         return this;
     }
 
+    public AlterJobV2Builder withNewIndexShortKeyCount(Map<Long, Short> shortKeyCount) {
+        this.newIndexShortKeyCount.putAll(shortKeyCount);
+        return this;
+    }
+
     public AlterJobV2Builder withNewIndexSchema(long indexId, @NotNull List<Column> indexSchema) {
         newIndexSchema.put(indexId, indexSchema);
         return this;

@@ -45,7 +45,6 @@ import com.starrocks.persist.gson.GsonUtils;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,7 +60,7 @@ public class TableAddOrDropColumnsInfo implements Writable {
     @SerializedName(value = "tableId")
     private long tableId;
     @SerializedName(value = "indexSchemaMap")
-    private Map<Long, LinkedList<Column>> indexSchemaMap;
+    private Map<Long, List<Column>> indexSchemaMap;
     @SerializedName(value = "indexes")
     private List<Index> indexes;
     @SerializedName(value = "jobId")
@@ -74,7 +73,7 @@ public class TableAddOrDropColumnsInfo implements Writable {
     private Set<String> addColumnsName;
 
     public TableAddOrDropColumnsInfo(long dbId, long tableId,
-            Map<Long, LinkedList<Column>> indexSchemaMap, List<Index> indexes, long jobId,
+            Map<Long, List<Column>> indexSchemaMap, List<Index> indexes, long jobId,
             long txnId, long startTime, Set<String> addColumnsName) {
         this.dbId = dbId;
         this.tableId = tableId;
@@ -94,7 +93,7 @@ public class TableAddOrDropColumnsInfo implements Writable {
         return tableId;
     }
 
-    public Map<Long, LinkedList<Column>> getIndexSchemaMap() {
+    public Map<Long, List<Column>> getIndexSchemaMap() {
         return indexSchemaMap;
     }
 

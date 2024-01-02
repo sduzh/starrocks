@@ -372,7 +372,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
         Map<Long, AlterJobV2> alterJobs = GlobalStateMgr.getCurrentState().getSchemaChangeHandler().getAlterJobsV2();
 
         // origin columns
-        Map<Long, LinkedList<Column>> indexSchemaMap = new HashMap<>();
+        Map<Long, List<Column>> indexSchemaMap = new HashMap<>();
         for (Map.Entry<Long, List<Column>> entry : tbl.getIndexIdToSchema().entrySet()) {
             indexSchemaMap.put(entry.getKey(), new LinkedList<>(entry.getValue()));
         }
@@ -400,7 +400,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
                                                      Collections.emptySet(), false));
         tbl.setState(beforeState);
 
-        Map<Long, LinkedList<Column>> indexSchemaMapInvalid2 = new HashMap<>(indexSchemaMap);
+        Map<Long, List<Column>> indexSchemaMapInvalid2 = new HashMap<>(indexSchemaMap);
 
         // value before key
         indexSchemaMapInvalid2.get(tbl.getBaseIndexId()).add(0, new Column("kk", Type.INT));
@@ -410,7 +410,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
                         .modifyTableAddOrDropColumns(db, tbl, indexSchemaMapInvalid2, newIndexes, 103, 103, 103,
                                                      Sets.newHashSet("kk"), false));
 
-        Map<Long, LinkedList<Column>> indexSchemaMapInvalid3 = new HashMap<>(indexSchemaMap);
+        Map<Long, List<Column>> indexSchemaMapInvalid3 = new HashMap<>(indexSchemaMap);
 
         // not key
         indexSchemaMapInvalid3.get(tbl.getBaseIndexId()).removeIf(Column::isKey);
@@ -419,7 +419,7 @@ public class SchemaChangeHandlerTest extends TestWithFeService {
                         .modifyTableAddOrDropColumns(db, tbl, indexSchemaMapInvalid3, newIndexes, 104, 104, 104,
                                                      Collections.emptySet(), false));
 
-        Map<Long, LinkedList<Column>> emptyIndexMap = new HashMap<>();
+        Map<Long, List<Column>> emptyIndexMap = new HashMap<>();
 
         Assertions.assertThrows(DdlException.class,
                 () -> ((SchemaChangeHandler) GlobalStateMgr.getCurrentState().getAlterJobMgr().getSchemaChangeHandler())

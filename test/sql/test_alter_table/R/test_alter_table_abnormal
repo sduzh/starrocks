@@ -226,3 +226,39 @@ SELECT * from t2;
 -- result:
 0	2024-01-01 00:00:00	10	100
 -- !result
+-- name: test_drop_partition_column
+CREATE TABLE t9 (
+c0 int(11) NULL COMMENT "",
+c1 int(11) NOT NULL COMMENT ""
+)
+DUPLICATE KEY(c0)
+PARTITION BY LIST(c1)(
+PARTITION p0 VALUES IN ('0'),
+PARTITION p1 VALUES IN ('1')
+)
+DISTRIBUTED BY HASH(c0) BUCKETS 1
+PROPERTIES ("fast_schema_evolution" = "true", "replication_num"="1");
+-- result:
+-- !result
+ALTER TABLE t9 DROP COLUMN c1;
+-- result:
+ERROR 1064 (HY000): Unexpected exception: Partition column[c1] cannot be dropped. index[t9]
+-- !result
+CREATE TABLE t10 (
+c0 int(11) NULL COMMENT "",
+c1 int(11) NOT NULL COMMENT ""
+)
+DUPLICATE KEY(c0)
+PARTITION BY LIST(c1)(
+PARTITION p0 VALUES IN ('0'),
+PARTITION p1 VALUES IN ('1')
+)
+DISTRIBUTED BY HASH(c0) BUCKETS 1
+PROPERTIES ("fast_schema_evolution" = "false", "replication_num"="1");
+-- result:
+-- !result
+ALTER TABLE t10 DROP COLUMN c1;
+-- result:
+ERROR 1064 (HY000): Unexpected exception: Partition column[c1] cannot be dropped. index[t10]
+-- !result
+
