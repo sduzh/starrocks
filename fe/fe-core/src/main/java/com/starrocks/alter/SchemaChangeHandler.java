@@ -2376,20 +2376,20 @@ public class SchemaChangeHandler extends AlterHandler {
         locker.lockDatabase(db, LockType.WRITE);
         try {
             LOG.debug("indexSchemaMap:{}, indexes:{}", indexSchemaMap, indexes);
+            if (olapTable.getState() == OlapTableState.ROLLUP) {
+                throw new DdlException("Table[" + olapTable.getName() + "] is doing ROLLUP job");
+            }
 
             // for now table's state can only be NORMAL
             Preconditions.checkState(olapTable.getState() == OlapTableState.NORMAL, olapTable.getState().name());
             SchemaChangeJobV2 schemaChangeJob = new SchemaChangeJobV2(jobId, db.getId(), olapTable.getId(),
                                                                       olapTable.getName(), 1000);
             // update base index schema
-            long baseIndexId = olapTable.getBaseIndexId();
-            List<Long> indexIds = new ArrayList<Long>();
-            indexIds.add(baseIndexId);
-            indexIds.addAll(olapTable.getIndexIdListExceptBaseIndex());
             Set<String> modifiedColumns = Sets.newHashSet();
             boolean hasMv = !olapTable.getRelatedMaterializedViews().isEmpty();
-            for (long idx : indexIds) {
-                List<Column> indexSchema = indexSchemaMap.get(idx);
+            for (Map.Entry<Long, List<Column>> entry : indexSchemaMap.entrySet()) {
+                Long idx = entry.getKey();
+                List<Column> indexSchema = entry.getValue();
                 // modify the copied indexMeta and put the update result in the indexIdToMeta
                 MaterializedIndexMeta currentIndexMeta = olapTable.getIndexMetaByIndexId(idx).shallowCopy();
                 List<Column> originSchema = currentIndexMeta.getSchema();
@@ -2404,7 +2404,7 @@ public class SchemaChangeHandler extends AlterHandler {
                 }
 
                 List<Integer> sortKeyUniqueIds = currentIndexMeta.getSortKeyUniqueIds();
-                List<Integer> newSortKeyIdxes = new ArrayList<Integer>();
+                List<Integer> newSortKeyIdxes = new ArrayList<>();
                 if (sortKeyUniqueIds != null) {
                     for (Integer uniqueId : sortKeyUniqueIds) {
                         Optional<Column> col = indexSchema.stream().filter(c -> c.getUniqueId() == uniqueId).findFirst();
