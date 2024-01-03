@@ -2509,7 +2509,7 @@ public class SchemaChangeHandler extends AlterHandler {
 
     private AlterJobV2 createJob(@NotNull SchemaChangeData schemaChangeData) throws UserException {
         AlterJobV2Builder jobBuilder = schemaChangeData.getTable().alterTable();
-        jobBuilder.withJobId(GlobalStateMgr.getCurrentState().getNextId())
+        return jobBuilder.withJobId(GlobalStateMgr.getCurrentState().getNextId())
                 .withDbId(schemaChangeData.getDatabase().getId())
                 .withTimeoutSeconds(schemaChangeData.getTimeoutInSeconds())
                 .withAlterIndexInfo(schemaChangeData.isHasIndexChanged(), schemaChangeData.getIndexes())
@@ -2519,7 +2519,7 @@ public class SchemaChangeHandler extends AlterHandler {
                 .withNewIndexShortKeyCount(schemaChangeData.getNewIndexShortKeyCount())
                 .withSortKeyIdxes(schemaChangeData.getSortKeyIdxes())
                 .withSortKeyUniqueIds(schemaChangeData.getSortKeyUniqueIds())
-                .withNewIndexSchema(schemaChangeData.getNewIndexSchema());
-        return jobBuilder.build();
+                .withNewIndexSchema(schemaChangeData.getNewIndexSchema())
+                .build();
     }
 }
