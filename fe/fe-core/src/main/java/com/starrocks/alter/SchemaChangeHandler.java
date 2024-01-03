@@ -1614,7 +1614,7 @@ public class SchemaChangeHandler extends AlterHandler {
             fastSchemaEvolutionInShareNothingMode(schemaChangeData);
             return null;
         } else {
-            return null;
+            throw new NotImplementedException("fast schema evolution not supported for shared data mode yet");
         }
     }
 
@@ -2518,7 +2518,8 @@ public class SchemaChangeHandler extends AlterHandler {
                 .withBloomFilterColumnsChanged(schemaChangeData.isBloomFilterColumnsChanged())
                 .withNewIndexShortKeyCount(schemaChangeData.getNewIndexShortKeyCount())
                 .withSortKeyIdxes(schemaChangeData.getSortKeyIdxes())
-                .withSortKeyUniqueIds(schemaChangeData.getSortKeyUniqueIds());
+                .withSortKeyUniqueIds(schemaChangeData.getSortKeyUniqueIds())
+                .withNewIndexSchema(schemaChangeData.getNewIndexSchema());
         return jobBuilder.build();
     }
 }

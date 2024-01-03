@@ -96,6 +96,11 @@ public abstract class AlterJobV2Builder {
         return this;
     }
 
+    public AlterJobV2Builder withNewIndexSchema(@NotNull Map<Long, List<Column>> indexSchema) {
+        newIndexSchema.putAll(indexSchema);
+        return this;
+    }
+
     public AlterJobV2Builder withSortKeyIdxes(@Nullable List<Integer> sortKeyIdxes) {
         this.sortKeyIdxes = sortKeyIdxes;
         return this;
