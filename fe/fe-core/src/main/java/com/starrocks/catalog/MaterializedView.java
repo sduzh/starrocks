@@ -1599,7 +1599,7 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
                 continue;
             }
             List<Column> partitionColumns = PartitionUtil.getPartitionColumns(table);
-            if (partitionColumns == null) {
+            if (partitionColumns.isEmpty()) {
                 continue;
             }
             SlotRef slotRef = tableToSlotMap.get(table);
