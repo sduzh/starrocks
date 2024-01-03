@@ -44,7 +44,6 @@ E: (1064, 'Unexpected exception: Can not modify sort column in primary data mode
 -- !result
 ALTER TABLE t0 MODIFY COLUMN v1 VARCHAR(100) MAX;
 -- result:
-E: (1064, 'Unexpected exception: Nothing is changed. please check your alter stmt.')
 -- !result
 ALTER TABLE t0 ADD column k2 SMALLINT KEY;
 -- result:
@@ -242,7 +241,7 @@ PROPERTIES ("fast_schema_evolution" = "true", "replication_num"="1");
 -- !result
 ALTER TABLE t9 DROP COLUMN c1;
 -- result:
-ERROR 1064 (HY000): Unexpected exception: Partition column[c1] cannot be dropped. index[t9]
+E: (1064, 'Unexpected exception: Partition column[c1] cannot be dropped. index[t9]')
 -- !result
 CREATE TABLE t10 (
 c0 int(11) NULL COMMENT "",
@@ -259,7 +258,7 @@ PROPERTIES ("fast_schema_evolution" = "false", "replication_num"="1");
 -- !result
 ALTER TABLE t10 DROP COLUMN c1;
 -- result:
-ERROR 1064 (HY000): Unexpected exception: Partition column[c1] cannot be dropped. index[t10]
+E: (1064, 'Unexpected exception: Partition column[c1] cannot be dropped. index[t10]')
 -- !result
 CREATE TABLE site_access1 (
     event_day DATETIME NOT NULL,
@@ -276,7 +275,7 @@ PROPERTIES('replication_num'='1');
 -- !result
 ALTER TABLE site_access1 DROP COLUMN event_day;
 -- result:
-ERROR 1064 (HY000): Unexpected exception: Partition column[event_day] cannot be dropped. index[site_access1]
+E: (1064, 'Unexpected exception: Partition column[event_day] cannot be dropped. index[site_access1]')
 -- !result
 ALTER TABLE site_access1 DROP COLUMN site_id;
 -- result:
