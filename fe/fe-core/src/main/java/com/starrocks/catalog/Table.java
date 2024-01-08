@@ -64,7 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import javax.annotation.Nullable;
+import javax.validation.constraints.NotNull;
 
 /**
  * Internal representation of table-related metadata. A table contains several partitions.
@@ -564,6 +564,7 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
     public Partition getPartition(String partitionName) {
         return null;
     }
+
     public Partition getPartition(String partitionName, boolean isTempPartition) {
         return null;
     }
@@ -724,15 +725,32 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable {
     }
 
     /**
-     * Delete this table. this method is called with the protection of the database's writer lock.
+     * Delete this table.
      *
      * @param replay is this a log replay operation.
-     * @return a {@link Runnable} object that will be invoked after the table has been deleted from
-     * catalog, or null if no action need to be performed.
+     * @return a {@link DeleteTableTask} object that will be invoked after the table has been deleted from
+     * catalog.
      */
-    @Nullable
-    public Runnable delete(boolean replay) {
+    @NotNull
+    public DeleteTableTask delete(boolean replay) {
+        DeleteTableTask task = deleteImpl(replay);
+        return task != null ? task : new DummyDeleteTableTask(getId());
+    }
+
+    protected DeleteTableTask deleteImpl(boolean replay) {
         return null;
+    }
+
+    @NotNull
+    public DropPartitionAction dropPartition(long dbId, String partitionName, boolean isForceDrop,
+                                             boolean reserveTablets) {
+        DropPartitionAction task = dropPartitionImpl(dbId, partitionName, isForceDrop, reserveTablets, false);
+        return task != null ? task : new DummyDropPartitionAction();
+    }
+
+    protected DropPartitionAction dropPartitionImpl(long dbId, String partitionName, boolean isForceDrop,
+                                                    boolean reserveTablets, boolean replay) {
+        throw new NotImplementedException("dropPartitionImpl");
     }
 
     public boolean isSupported() {

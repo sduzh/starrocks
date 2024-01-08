@@ -186,6 +186,7 @@ import com.starrocks.persist.PartitionPersistInfo;
 import com.starrocks.persist.PartitionPersistInfoV2;
 import com.starrocks.persist.PhysicalPartitionPersistInfoV2;
 import com.starrocks.persist.PrivInfo;
+import com.starrocks.persist.ProhibitTableRecoveryInfo;
 import com.starrocks.persist.RecoverInfo;
 import com.starrocks.persist.RenameMaterializedViewLog;
 import com.starrocks.persist.ReplacePartitionOperationLog;
@@ -2184,6 +2185,10 @@ public class GlobalStateMgr {
 
     public void replayEraseMultiTables(MultiEraseTableInfo multiEraseTableInfo) throws DdlException {
         localMetastore.replayEraseMultiTables(multiEraseTableInfo);
+    }
+
+    public void replayProhibitTableRecovery(ProhibitTableRecoveryInfo prohibitTableRecoveryInfo) {
+        localMetastore.replayProhibitTableRecovery(prohibitTableRecoveryInfo);
     }
 
     public void replayRecoverTable(RecoverInfo info) {

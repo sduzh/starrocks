@@ -406,7 +406,6 @@ public class Database extends MetaObject implements Writable {
 
     public void dropTable(String tableName, boolean isSetIfExists, boolean isForce) throws DdlException {
         Table table;
-        Runnable runnable;
         writeLock();
         try {
             table = getTable(tableName);
@@ -423,26 +422,22 @@ public class Database extends MetaObject implements Writable {
                         "] cannot be dropped. If you want to forcibly drop(cannot be recovered)," +
                         " please use \"DROP TABLE <table> FORCE\".");
             }
-            runnable = unprotectDropTable(table.getId(), isForce, false);
+            unprotectDropTable(table.getId(), isForce, false);
             DropInfo info = new DropInfo(id, table.getId(), -1L, isForce);
             GlobalStateMgr.getCurrentState().getEditLog().logDropTable(info);
         } finally {
             writeUnlock();
         }
 
-        if (runnable != null) {
-            runnable.run();
-        }
         LOG.info("finished dropping table: {}, type:{} from db: {}, is force: {}", tableName, table.getType(), fullQualifiedName,
                 isForce);
     }
 
-    public Runnable unprotectDropTable(long tableId, boolean isForceDrop, boolean isReplay) {
-        Runnable runnable;
+    public void unprotectDropTable(long tableId, boolean isForceDrop, boolean isReplay) {
         Table table = getTable(tableId);
         // delete from db meta
         if (table == null) {
-            return null;
+            return;
         }
 
         if (table instanceof OlapTable && table.hasAutoIncrementColumn()) {
@@ -455,16 +450,9 @@ public class Database extends MetaObject implements Writable {
 
         dropTable(table.getName());
 
-        if (!isForceDrop) {
-            Table oldTable = GlobalStateMgr.getCurrentState().getRecycleBin().recycleTable(id, table);
-            runnable = (oldTable != null) ? oldTable.delete(isReplay) : null;
-        } else {
-            GlobalStateMgr.getCurrentState().removeAutoIncrementIdByTableId(tableId, isReplay);
-            runnable = table.delete(isReplay);
-        }
+        GlobalStateMgr.getCurrentState().getRecycleBin().recycleTable(id, table, !isForceDrop);
 
         LOG.info("finished dropping table[{}] in db[{}], tableId: {}", table.getName(), getOriginName(), tableId);
-        return runnable;
     }
 
     public void dropTableWithLock(String tableName) {

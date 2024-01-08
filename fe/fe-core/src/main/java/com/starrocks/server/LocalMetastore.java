@@ -159,6 +159,7 @@ import com.starrocks.persist.OperationType;
 import com.starrocks.persist.PartitionPersistInfo;
 import com.starrocks.persist.PartitionPersistInfoV2;
 import com.starrocks.persist.PhysicalPartitionPersistInfoV2;
+import com.starrocks.persist.ProhibitTableRecoveryInfo;
 import com.starrocks.persist.RangePartitionPersistInfo;
 import com.starrocks.persist.RecoverInfo;
 import com.starrocks.persist.ReplacePartitionOperationLog;
@@ -493,7 +494,6 @@ public class LocalMetastore implements ConnectorMetadata {
             unlock();
         }
 
-        List<Runnable> runnableList;
         // 2. drop tables in db
         Locker locker = new Locker();
         locker.lockDatabase(db, LockType.WRITE);
@@ -511,7 +511,7 @@ public class LocalMetastore implements ConnectorMetadata {
 
             // save table names for recycling
             Set<String> tableNames = new HashSet<>(db.getTableNamesViewWithLock());
-            runnableList = unprotectDropDb(db, isForceDrop, false);
+            unprotectDropDb(db, isForceDrop, false);
             if (!isForceDrop) {
                 recycleBin.recycleDatabase(db, tableNames);
             } else {
@@ -540,26 +540,16 @@ public class LocalMetastore implements ConnectorMetadata {
         } finally {
             locker.unLockDatabase(db, LockType.WRITE);
         }
-
-        for (Runnable runnable : runnableList) {
-            runnable.run();
-        }
     }
 
     @NotNull
-    public List<Runnable> unprotectDropDb(Database db, boolean isForeDrop, boolean isReplay) {
-        List<Runnable> runnableList = new ArrayList<>();
+    public void unprotectDropDb(Database db, boolean isForeDrop, boolean isReplay) {
         for (Table table : db.getTables()) {
-            Runnable runnable = db.unprotectDropTable(table.getId(), isForeDrop, isReplay);
-            if (runnable != null) {
-                runnableList.add(runnable);
-            }
+            db.unprotectDropTable(table.getId(), isForeDrop, isReplay);
         }
-        return runnableList;
     }
 
     public void replayDropDb(String dbName, boolean isForceDrop) throws DdlException {
-        List<Runnable> runnableList;
         tryLock(true);
         try {
             Database db = fullNameToDb.get(dbName);
@@ -567,7 +557,7 @@ public class LocalMetastore implements ConnectorMetadata {
             locker.lockDatabase(db, LockType.WRITE);
             try {
                 Set<String> tableNames = new HashSet(db.getTableNamesViewWithLock());
-                runnableList = unprotectDropDb(db, isForceDrop, true);
+                unprotectDropDb(db, isForceDrop, true);
                 if (!isForceDrop) {
                     recycleBin.recycleDatabase(db, tableNames);
                 } else {
@@ -584,10 +574,6 @@ public class LocalMetastore implements ConnectorMetadata {
             LOG.info("finish replay drop db, name: {}, id: {}", dbName, db.getId());
         } finally {
             unlock();
-        }
-
-        for (Runnable runnable : runnableList) {
-            runnable.run();
         }
     }
 
@@ -2608,28 +2594,26 @@ public class LocalMetastore implements ConnectorMetadata {
     }
 
     public void replayDropTable(Database db, long tableId, boolean isForceDrop) {
-        Runnable runnable;
         Locker locker = new Locker();
         locker.lockDatabase(db, LockType.WRITE);
         try {
-            runnable = db.unprotectDropTable(tableId, isForceDrop, true);
+            db.unprotectDropTable(tableId, isForceDrop, true);
         } finally {
             locker.unLockDatabase(db, LockType.WRITE);
-        }
-        if (runnable != null) {
-            runnable.run();
         }
     }
 
     public void replayEraseTable(long tableId) {
-        recycleBin.replayEraseTable(tableId);
+        recycleBin.replayEraseTable(Collections.singletonList(tableId));
     }
 
     public void replayEraseMultiTables(MultiEraseTableInfo multiEraseTableInfo) {
         List<Long> tableIds = multiEraseTableInfo.getTableIds();
-        for (Long tableId : tableIds) {
-            recycleBin.replayEraseTable(tableId);
-        }
+        recycleBin.replayEraseTable(tableIds);
+    }
+
+    public void replayProhibitTableRecovery(ProhibitTableRecoveryInfo prohibitTableRecoveryInfo) {
+        recycleBin.replayProhibitTableRecovery(prohibitTableRecoveryInfo.getTableIds());
     }
 
     public void replayRecoverTable(RecoverInfo info) {

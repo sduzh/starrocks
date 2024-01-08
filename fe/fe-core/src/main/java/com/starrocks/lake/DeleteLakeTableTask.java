@@ -14,6 +14,7 @@
 
 package com.starrocks.lake;
 
+import com.starrocks.catalog.DeleteTableTask;
 import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PhysicalPartition;
@@ -32,11 +33,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 
-class DeleteLakeTableTask implements Runnable {
+class DeleteLakeTableTask implements DeleteTableTask {
     private static final Logger LOG = LogManager.getLogger(DeleteLakeTableTask.class);
 
     // lake table or lake materialized view
     private final OlapTable table;
+    private boolean deleteFailed = false;
 
     DeleteLakeTableTask(OlapTable table) {
         this.table = table;
@@ -72,6 +74,7 @@ class DeleteLakeTableTask implements Runnable {
                 storagePathToTablet.putIfAbsent(storagePath, anyTablet);
             } catch (Exception e) {
                 LOG.warn("Fail to get shard info of tablet {}: {}", anyTablet.getId(), e.getMessage());
+                deleteFailed = true;
                 break;
             }
         }
@@ -94,6 +97,7 @@ class DeleteLakeTableTask implements Runnable {
         request.tabletId = tablet.getId();
         ComputeNode node = Utils.chooseNode((LakeTablet) tablet);
         if (node == null) {
+            deleteFailed = true;
             LOG.warn("Fail to remove {}: no alive node", path);
             return;
         }
@@ -104,7 +108,23 @@ class DeleteLakeTableTask implements Runnable {
             responseFuture.get();
             LOG.info("Executing removal of {} on node {}", path, node.getHost());
         } catch (Exception e) {
+            deleteFailed = true;
             LOG.warn("Fail to execute removal of {} on node {}: {}", path, node.getHost(), e.getMessage());
         }
+    }
+
+    @Override
+    public long tableId() {
+        return table.getId();
+    }
+
+    @Override
+    public boolean supportRetry() {
+        return true;
+    }
+
+    @Override
+    public boolean needRetry() {
+        return deleteFailed;
     }
 }

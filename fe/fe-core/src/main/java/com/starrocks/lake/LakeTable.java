@@ -23,7 +23,9 @@ import com.starrocks.alter.LakeTableAlterJobV2Builder;
 import com.starrocks.backup.Status;
 import com.starrocks.catalog.CatalogUtils;
 import com.starrocks.catalog.Column;
+import com.starrocks.catalog.DeleteTableTask;
 import com.starrocks.catalog.DistributionInfo;
+import com.starrocks.catalog.DropPartitionAction;
 import com.starrocks.catalog.KeysType;
 import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.OlapTable;
@@ -118,7 +120,7 @@ public class LakeTable extends OlapTable {
     }
 
     @Override
-    public Runnable delete(boolean replay) {
+    protected DeleteTableTask deleteImpl(boolean replay) {
         onErase(replay);
         return replay ? null : new DeleteLakeTableTask(this);
     }
@@ -201,5 +203,15 @@ public class LakeTable extends OlapTable {
             return CatalogUtils.addEscapeCharacter(comment);
         }
         return TableType.OLAP.name();
+    }
+
+    @Override
+    protected DropPartitionAction dropPartitionImpl(long dbId, String partitionName, boolean isForceDrop, boolean reserveTablets,
+                                                    boolean replay) {
+        Partition partition = nameToPartition.get(partitionName);
+        if (partition == null) {
+            return null;
+        }
+        return new DropLakePartitionAction(dbId, this, partition, isForceDrop, reserveTablets);
     }
 }

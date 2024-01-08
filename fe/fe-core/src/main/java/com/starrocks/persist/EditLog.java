@@ -325,6 +325,11 @@ public class EditLog {
                     globalStateMgr.replayEraseMultiTables(multiEraseTableInfo);
                     break;
                 }
+                case OperationType.OP_PROHIBIT_TABLE_RECOVERY: {
+                    ProhibitTableRecoveryInfo prohibitTableRecoveryInfo = (ProhibitTableRecoveryInfo) journal.getData();
+                    globalStateMgr.replayProhibitTableRecovery(prohibitTableRecoveryInfo);
+                    break;
+                }
                 case OperationType.OP_ERASE_PARTITION: {
                     Text partitionId = (Text) journal.getData();
                     globalStateMgr.replayErasePartition(Long.parseLong(partitionId.toString()));
@@ -1413,6 +1418,10 @@ public class EditLog {
         } else {
             logEdit(OperationType.OP_DROP_TABLE, info);
         }
+    }
+
+    public void logProhibitRecoverTables(List<Long> tableIds) {
+        logEdit(OperationType.OP_PROHIBIT_TABLE_RECOVERY, new ProhibitTableRecoveryInfo(tableIds));
     }
 
     public void logEraseMultiTables(List<Long> tableIds) {

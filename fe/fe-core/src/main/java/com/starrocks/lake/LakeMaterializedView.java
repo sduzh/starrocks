@@ -20,10 +20,13 @@ import com.staros.proto.FileCacheInfo;
 import com.staros.proto.FilePathInfo;
 import com.starrocks.catalog.CatalogUtils;
 import com.starrocks.catalog.Column;
+import com.starrocks.catalog.DeleteTableTask;
 import com.starrocks.catalog.DistributionInfo;
+import com.starrocks.catalog.DropPartitionAction;
 import com.starrocks.catalog.KeysType;
 import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.MaterializedView;
+import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.TableProperty;
 import com.starrocks.common.io.DeepCopy;
@@ -108,7 +111,7 @@ public class LakeMaterializedView extends MaterializedView {
     }
 
     @Override
-    public Runnable delete(boolean replay) {
+    protected DeleteTableTask deleteImpl(boolean replay) {
         onErase(replay);
         return replay ? null : new DeleteLakeTableTask(this);
     }
@@ -168,5 +171,15 @@ public class LakeMaterializedView extends MaterializedView {
             return CatalogUtils.addEscapeCharacter(comment);
         }
         return TableType.MATERIALIZED_VIEW.name();
+    }
+
+    @Override
+    protected DropPartitionAction dropPartitionImpl(long dbId, String partitionName, boolean isForceDrop, boolean reserveTablets,
+                                                    boolean replay) {
+        Partition partition = nameToPartition.get(partitionName);
+        if (partition == null) {
+            return null;
+        }
+        return new DropLakePartitionAction(dbId, this, partition, isForceDrop, reserveTablets);
     }
 }
