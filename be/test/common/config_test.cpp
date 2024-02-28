@@ -38,16 +38,16 @@ class ConfigTest : public testing::Test {
 };
 
 TEST_F(ConfigTest, test_init) {
-    CONF_Bool(cfg_bool, "false");
-    CONF_mBool(cfg_mbool, "true");
-    CONF_Double(cfg_double, "123.456");
-    CONF_mDouble(cfg_mdouble, "-123.456");
-    CONF_Int16(cfg_int16, "2561");
-    CONF_mInt16(cfg_mint16, "-2561");
-    CONF_Int32(cfg_int32, "65536123");
-    CONF_mInt32(cfg_mint32, "-65536123");
-    CONF_Int64(cfg_int64, "4294967296123");
-    CONF_mInt64(cfg_mint64, "-4294967296123");
+    CONF_Bool(cfg_bool, false);
+    CONF_mBool(cfg_mbool, true);
+    CONF_Double(cfg_double, 123.456);
+    CONF_mDouble(cfg_mdouble, -123.456);
+    CONF_Int16(cfg_int16, 2561);
+    CONF_mInt16(cfg_mint16, -2561);
+    CONF_Int32(cfg_int32, 65536123);
+    CONF_mInt32(cfg_mint32, -65536123);
+    CONF_Int64(cfg_int64, 4294967296123);
+    CONF_mInt64(cfg_mint64, -4294967296123);
     CONF_String(cfg_string, "test_string");
     CONF_mString(cfg_mstring, "test_mstring");
     CONF_Bools(cfg_bools, "true,false,true");
@@ -57,7 +57,7 @@ TEST_F(ConfigTest, test_init) {
     CONF_Int64s(cfg_int64s, "100,200,300");
     CONF_Strings(cfg_strings, "s1,s2,s3");
     CONF_String(cfg_string_env, "prefix/${ConfigTestEnv1}/suffix");
-    CONF_Bool(cfg_bool_env, "false");
+    CONF_Bool(cfg_bool_env, false);
 
     // Invalid bool value
     {
@@ -143,15 +143,15 @@ TEST_F(ConfigTest, test_init) {
 
 TEST_F(ConfigTest, test_list_configs) {
     CONF_Bool(cfg_bool, "false");
-    CONF_mBool(cfg_mbool, "true");
-    CONF_Double(cfg_double, "123.456");
-    CONF_mDouble(cfg_mdouble, "-123.456");
-    CONF_Int16(cfg_int16, "2561");
-    CONF_mInt16(cfg_mint16, "-2561");
-    CONF_Int32(cfg_int32, "65536123");
-    CONF_mInt32(cfg_mint32, "-65536123");
-    CONF_Int64(cfg_int64, "4294967296123");
-    CONF_mInt64(cfg_mint64, "-4294967296123");
+    CONF_mBool(cfg_mbool, true);
+    CONF_Double(cfg_double, 123.456);
+    CONF_mDouble(cfg_mdouble, -123.456);
+    CONF_Int16(cfg_int16, 2561);
+    CONF_mInt16(cfg_mint16, -2561);
+    CONF_Int32(cfg_int32, 65536123);
+    CONF_mInt32(cfg_mint32, -65536123);
+    CONF_Int64(cfg_int64, 4294967296123);
+    CONF_mInt64(cfg_mint64, -4294967296123);
     CONF_String(cfg_string, "test_string");
     CONF_mString(cfg_mstring, "test_mstring");
     CONF_Bools(cfg_bools, "true,false,true");
@@ -165,7 +165,7 @@ TEST_F(ConfigTest, test_list_configs) {
 
     std::vector<ConfigInfo> exp_configs = {
             // name,value,type,default,mutable
-            {"cfg_bool", "false", "bool", "false", false},
+            {"cfg_bool", "false", "bool", false, false},
             {"cfg_mbool", "true", "bool", "true", true},
             {"cfg_double", "123.456", "double", "123.456", false},
             {"cfg_mdouble", "-123.456", "double", "-123.456", true},
@@ -206,12 +206,12 @@ TEST_F(ConfigTest, test_list_configs) {
 }
 
 TEST_F(ConfigTest, test_set_config) {
-    CONF_Bool(cfg_bool_immutable, "true");
-    CONF_mBool(cfg_bool, "false");
-    CONF_mDouble(cfg_double, "123.456");
-    CONF_mInt16(cfg_int16_t, "2561");
-    CONF_mInt32(cfg_int32_t, "65536123");
-    CONF_mInt64(cfg_int64_t, "4294967296123");
+    CONF_Bool(cfg_bool_immutable, true);
+    CONF_mBool(cfg_bool, false);
+    CONF_mDouble(cfg_double, 123.456);
+    CONF_mInt16(cfg_int16_t, 2561);
+    CONF_mInt32(cfg_int32_t, 65536123);
+    CONF_mInt64(cfg_int64_t, 4294967296123);
     CONF_String(cfg_std_string, "starrocks_config_test_string");
     CONF_mString(cfg_std_string_mutable, "starrocks_config_test_string_mutable");
 

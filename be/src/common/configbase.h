@@ -64,7 +64,7 @@ inline std::ostream& operator<<(std::ostream& os, const ConfigInfo& info) {
 // A wrapper on std::string, it's safe to read/write MutableString concurrently.
 class MutableString {
 public:
-    MutableString() = default;
+    explicit MutableString(const char* value) { _str.Modify(update_value, std::string(value)); }
     ~MutableString() = default;
 
     // Disallow copy and move, because no usage now.
@@ -205,8 +205,12 @@ public:
 #endif // __IN_CONFIGBASE_CPP__
 
 #define DEFINE_FIELD(FIELD_TYPE, FIELD_NAME, FIELD_DEFAULT, VALMUTABLE, TYPE_NAME) \
-    FIELD_TYPE FIELD_NAME;                                                         \
-    static FieldImpl<FIELD_TYPE> reg_field_##FIELD_NAME(TYPE_NAME, #FIELD_NAME, &FIELD_NAME, FIELD_DEFAULT, VALMUTABLE);
+    FIELD_TYPE FIELD_NAME = FIELD_DEFAULT;                                         \
+    static FieldImpl<FIELD_TYPE> reg_field_##FIELD_NAME(TYPE_NAME, #FIELD_NAME, &FIELD_NAME, #FIELD_DEFAULT, VALMUTABLE);
+
+#define DEFINE_FIELD2(FIELD_TYPE, FIELD_NAME, FIELD_DEFAULT, VALMUTABLE, TYPE_NAME) \
+    FIELD_TYPE FIELD_NAME{FIELD_DEFAULT};                                         \
+    static FieldImpl<FIELD_TYPE> reg_field_##FIELD_NAME(TYPE_NAME, #FIELD_NAME, &FIELD_NAME, #FIELD_DEFAULT, VALMUTABLE);
 
 #define DECLARE_FIELD(FIELD_TYPE, FIELD_NAME) extern FIELD_TYPE FIELD_NAME;
 
@@ -228,7 +232,7 @@ public:
 #define CONF_mInt32(name, defaultstr) DEFINE_FIELD(int32_t, name, defaultstr, true, "int32")
 #define CONF_mInt64(name, defaultstr) DEFINE_FIELD(int64_t, name, defaultstr, true, "int64")
 #define CONF_mDouble(name, defaultstr) DEFINE_FIELD(double, name, defaultstr, true, "double")
-#define CONF_mString(name, defaultstr) DEFINE_FIELD(MutableString, name, defaultstr, true, "string")
+#define CONF_mString(name, defaultstr) DEFINE_FIELD2(MutableString, name, defaultstr, true, "string")
 #else
 #define CONF_Bool(name, defaultstr) DECLARE_FIELD(bool, name)
 #define CONF_Int16(name, defaultstr) DECLARE_FIELD(int16_t, name)

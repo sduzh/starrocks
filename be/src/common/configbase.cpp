@@ -131,20 +131,8 @@ class Properties {
 public:
     bool load(std::istream& input);
 
-    std::optional<std::string> get(const std::string& key) const;
-
-private:
     std::map<std::string, std::string> _configs;
 };
-
-inline std::optional<std::string> Properties::get(const std::string& key) const {
-    auto it = _configs.find(key);
-    if (it == _configs.end()) {
-        return {};
-    } else {
-        return {it->second};
-    }
-}
 
 inline bool Properties::load(std::istream& input) {
     std::string line;
@@ -185,6 +173,22 @@ inline bool Properties::load(std::istream& input) {
     return true;
 }
 
+inline Status set_config_impl(const std::string& field, const std::string& value, bool force) {
+    auto it = Field::fields().find(field);
+    if (it == Field::fields().end()) {
+        return Status::NotFound(fmt::format("'{}' is not found", field));
+    }
+    if (!it->second->valmutable() && !force) {
+        return Status::NotSupported(fmt::format("'{}' is immutable", field));
+    }
+    std::string real_value = value;
+    RETURN_IF_ERROR(replaceenv(real_value));
+    if (!it->second->parse_value(real_value)) {
+        return Status::InvalidArgument(fmt::format("Invalid value of config '{}': '{}'", field, value));
+    }
+    return Status::OK();
+}
+
 // Init conf fields.
 bool init(const char* filename) {
     if (filename == nullptr) {
@@ -215,16 +219,16 @@ bool init(std::istream& input) {
     }
 
     // Set conf fields.
-    for (const auto& [name, field] : Field::fields()) {
-        std::string value = props.get(name).value_or(field->defval());
-        auto st = replaceenv(value);
-        if (!st.ok()) {
+    for (auto& [k, v] : props._configs) {
+        StripWhiteSpace(&v);
+        auto st = set_config_impl(k, v, true);
+        if (st.is_not_found()) {
+            std::cerr << "Unknown configuration item: '" << k << "'\n";
+            // Consistent with the previous behavior, encountering an unknown configuration
+            // item will not cause initialization failure
+            // return false;
+        } else if (!st.ok()) {
             std::cerr << st << '\n';
-            return false;
-        }
-        StripWhiteSpace(&value);
-        if (!field->parse_value(value)) {
-            std::cerr << fmt::format("Invalid value of config '{}': '{}'", name, value) << '\n';
             return false;
         }
     }
@@ -232,19 +236,7 @@ bool init(std::istream& input) {
 }
 
 Status set_config(const std::string& field, const std::string& value) {
-    auto it = Field::fields().find(field);
-    if (it == Field::fields().end()) {
-        return Status::NotFound(fmt::format("'{}' is not found", field));
-    }
-    if (!it->second->valmutable()) {
-        return Status::NotSupported(fmt::format("'{}' is immutable", field));
-    }
-    std::string real_value = value;
-    RETURN_IF_ERROR(replaceenv(real_value));
-    if (!it->second->parse_value(real_value)) {
-        return Status::InvalidArgument(fmt::format("Invalid value of config '{}': '{}'", field, value));
-    }
-    return Status::OK();
+    return set_config_impl(field, value, false);
 }
 
 std::vector<ConfigInfo> list_configs() {
