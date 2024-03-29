@@ -183,7 +183,7 @@ private:
     Status _load_bitmap_index(const IndexReadOptions& opts);
     Status _load_bloom_filter_index(const IndexReadOptions& opts);
 
-    Status _parse_zone_map(const ZoneMapPB& zm, ZoneMapDetail* detail) const;
+    Status _parse_zone_map(LogicalType type, const ZoneMapPB& zm, ZoneMapDetail* detail) const;
 
     Status _calculate_row_ranges(const std::vector<uint32_t>& page_indexes, SparseRange<>* row_ranges);
 

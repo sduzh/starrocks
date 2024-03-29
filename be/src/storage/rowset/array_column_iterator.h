@@ -43,7 +43,8 @@ public:
 
     ordinal_t get_current_ordinal() const override { return _array_size_iterator->get_current_ordinal(); }
 
-    /// for vectorized engine
+    ordinal_t num_rows() const override { return _reader->num_rows(); }
+
     [[nodiscard]] Status get_row_ranges_by_zone_map(const std::vector<const ColumnPredicate*>& predicates,
                                                     const ColumnPredicate* del_predicate,
                                                     SparseRange<>* row_ranges) override;
@@ -65,7 +66,7 @@ public:
 
     int dict_size() override { return _element_iterator->dict_size(); }
 
-    ColumnReader* get_column_reader() { return _reader; }
+    ColumnReader* get_column_reader() override { return _reader; }
 
 private:
     [[nodiscard]] Status next_batch_null_offsets(size_t* n, UInt32Column* offsets, UInt8Column* nulls,
