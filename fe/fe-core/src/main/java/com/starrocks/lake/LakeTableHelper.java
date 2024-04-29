@@ -41,8 +41,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class LakeTableHelper {
     private static final Logger LOG = LogManager.getLogger(LakeTableHelper.class);
@@ -183,17 +185,54 @@ public class LakeTableHelper {
      * @return the max column unique id
      */
     public static int restoreColumnUniqueId(OlapTable table) {
+        LOG.info("Restoring column unique id of table '{}'", table.getName());
         int maxId = 0;
         for (MaterializedIndexMeta indexMeta : table.getIndexIdToMeta().values()) {
             final int columnCount = indexMeta.getSchema().size();
             maxId = Math.max(maxId, columnCount - 1);
             for (int i = 0; i < columnCount; i++) {
                 Column col = indexMeta.getSchema().get(i);
-                Preconditions.checkState(col.getUniqueId() <= 0, col.getUniqueId());
                 col.setUniqueId(i);
             }
         }
         return maxId;
+    }
+
+    // If a user upgrades to version 3.3 or later and then rolls back to a lower version and performs
+    // DDL operations in the lower version, it is possible that when upgrading to 3.3 or higher again,
+    // maxColumnUniqueId is greater than 0, but some columns do not have unique ids.
+    public static boolean checkColumnUniqueId(OlapTable table) {
+        boolean ret = true;
+        Set<Integer> uniqueIds = new HashSet<>();
+        for (MaterializedIndexMeta indexMeta : table.getIndexIdToMeta().values()) {
+            for (Column col : indexMeta.getSchema()) {
+                if (col.getUniqueId() < 0) {
+                    LOG.error("column '{}' of table '{}' does not have unique id", col.getName(), table.getName());
+                    ret = false;
+                } else if (!uniqueIds.add(col.getUniqueId())) {
+                    ret = false;
+                    LOG.error("Encountered duplicate column unique id({}) of column '{}' in table '{}'", col.getUniqueId(),
+                            col.getName(), table.getName());
+                }
+            }
+        }
+        return ret;
+    }
+
+    public static void checkAndRestoreColumnUniqueIdIfNeeded(OlapTable table) {
+        if (GlobalStateMgr.isCheckpointThread() || !Config.lake_check_table_unique_id_on_startup) {
+            return;
+        }
+        if (!checkColumnUniqueId(table)) {
+            if (Config.lake_recover_table_unique_id_on_startup) {
+                restoreColumnUniqueId(table);
+            } else {
+                LOG.error("The column unique id check fails, have you ever upgraded to 3.3 or higher and then " +
+                        "rolled back to a version prior to 3.3? If yes, you can try to restart FE after adding " +
+                        "“lake_recover_table_unique_id_on_startup=true” in fe.conf, if not, please contact StarRocks community.");
+                Preconditions.checkState(false, "column unique id check failed");
+            }
+        }
     }
 
     public static boolean supportCombinedTxnLog(TransactionState.LoadJobSourceType sourceType) {

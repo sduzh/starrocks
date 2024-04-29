@@ -256,6 +256,8 @@ public class LakeTable extends OlapTable {
         super.gsonPostProcess();
         if (getMaxColUniqueId() <= 0) {
             setMaxColUniqueId(LakeTableHelper.restoreColumnUniqueId(this));
+        } else {
+            LakeTableHelper.checkAndRestoreColumnUniqueIdIfNeeded(this);
         }
     }
 

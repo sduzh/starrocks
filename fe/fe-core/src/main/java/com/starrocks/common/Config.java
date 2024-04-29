@@ -2910,4 +2910,10 @@ public class Config extends ConfigBase {
 
     @ConfField(mutable = true)
     public static boolean show_execution_groups = true;
+
+    @ConfField
+    public static boolean lake_check_table_unique_id_on_startup = true;
+
+    @ConfField
+    public static boolean lake_recover_table_unique_id_on_startup = false;
 }

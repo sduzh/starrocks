@@ -14,6 +14,7 @@
 
 package com.starrocks.lake;
 
+import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.Table;
 import com.starrocks.common.Config;
@@ -73,5 +74,31 @@ public class LakeTableHelperTest {
         Assert.assertFalse(LakeTableHelper.supportCombinedTxnLog(TransactionState.LoadJobSourceType.MV_REFRESH));
         Config.lake_use_combined_txn_log = false;
         Assert.assertFalse(LakeTableHelper.supportCombinedTxnLog(TransactionState.LoadJobSourceType.BACKEND_STREAMING));
+    }
+
+    @Test
+    public void testCheckColumnUniqueId() throws Exception {
+        LakeTable table = createTable(String.format("CREATE TABLE %s.t0(c0 INT, c1 BIGINT)" +
+                " primary key(c0) distributed by hash(c0) buckets 1", DB_NAME));
+        LakeTableHelper.checkAndRestoreColumnUniqueIdIfNeeded(table);
+
+        Column col = table.getColumn("c1");
+        col.setUniqueId(-1);
+        Assert.assertFalse(LakeTableHelper.checkColumnUniqueId(table));
+
+        col.setUniqueId(0);
+        Assert.assertFalse(LakeTableHelper.checkColumnUniqueId(table));
+
+        boolean backup = Config.lake_recover_table_unique_id_on_startup;
+        Config.lake_recover_table_unique_id_on_startup = true;
+        try {
+            LakeTableHelper.checkAndRestoreColumnUniqueIdIfNeeded(table);
+            Assert.assertEquals(0, table.getColumn("c0").getUniqueId());
+            Assert.assertEquals(1, table.getColumn("c1").getUniqueId());
+            Assert.assertEquals(1, table.getMaxColUniqueId());
+        } finally {
+            // restore config to original value
+            Config.lake_recover_table_unique_id_on_startup = backup;
+        }
     }
 }

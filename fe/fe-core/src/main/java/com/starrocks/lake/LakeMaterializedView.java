@@ -190,6 +190,8 @@ public class LakeMaterializedView extends MaterializedView {
         super.gsonPostProcess();
         if (getMaxColUniqueId() <= 0) {
             setMaxColUniqueId(LakeTableHelper.restoreColumnUniqueId(this));
+        } else {
+            LakeTableHelper.checkAndRestoreColumnUniqueIdIfNeeded(this);
         }
     }
 }
