@@ -26,6 +26,8 @@ import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.lake.LakeTablet;
+import com.starrocks.proto.DeleteTxnLogRequest;
+import com.starrocks.proto.TxnInfoPB;
 import com.starrocks.proto.VacuumRequest;
 import com.starrocks.proto.VacuumResponse;
 import com.starrocks.rpc.BrpcProxy;
@@ -34,6 +36,8 @@ import com.starrocks.rpc.RpcException;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.WarehouseManager;
 import com.starrocks.system.ComputeNode;
+import com.starrocks.transaction.TableCommitInfo;
+import com.starrocks.transaction.TransactionState;
 import org.apache.hadoop.util.BlockingThreadPoolExecutorService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -58,6 +62,9 @@ public class AutovacuumDaemon extends FrontendDaemon {
     private static final long MILLISECONDS_PER_HOUR = MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
 
     private final Set<Long> vacuumingPartitions = Sets.newConcurrentHashSet();
+    private final Map<Long, List<Long>> finishedTransactions = new HashMap<>();
+    private final Map<Long, List<Long>> finishedTransactionsWithCombinedTxnLog = new HashMap<>();
+
     private final BlockingThreadPoolExecutorService executorService = BlockingThreadPoolExecutorService.newInstance(
             Config.lake_autovacuum_parallel_partitions, 0, 1, TimeUnit.HOURS, "autovacuum");
 
@@ -85,6 +92,25 @@ public class AutovacuumDaemon extends FrontendDaemon {
                 vacuumTable(db, table);
             }
         }
+    }
+
+    public synchronized void addFinishedTransaction(TransactionState txnState) {
+        boolean isCombinedTxnLog = txnState.isUseCombinedTxnLog();
+        for (Map.Entry<Long, TableCommitInfo> entry : txnState.getIdToTableCommitInfos().entrySet()) {
+            for (Long partitionId : entry.getValue().getIdToPartitionCommitInfo().keySet()) {
+                Map<Long, List<Long>> map = isCombinedTxnLog ? finishedTransactionsWithCombinedTxnLog : finishedTransactions;
+                List<Long> txnIds = map.computeIfAbsent(partitionId, k -> new ArrayList<>());
+                txnIds.add(txnState.getTransactionId());
+            }
+        }
+    }
+
+    private synchronized List<Long> removeFinishedTransactionsOfPartition(long partitionId) {
+        return finishedTransactions.remove(partitionId);
+    }
+
+    private synchronized List<Long> removeFinishedTransactionsWithCombinedTxnLogOfPartition(long partitionId) {
+        return finishedTransactionsWithCombinedTxnLog.remove(partitionId);
     }
 
     private void vacuumTable(Database db, Table baseTable) {
@@ -121,6 +147,50 @@ public class AutovacuumDaemon extends FrontendDaemon {
         }
     }
 
+    private void deleteTxnLogIgnoreError(ComputeNode node, DeleteTxnLogRequest request) {
+        try {
+            LakeService lakeService = BrpcProxy.getLakeService(node.getHost(), node.getBrpcPort());
+            // just ignore the response, for we don't care the result of delete txn log
+            // and vacuum will clan the txn log finally if it failed.
+            lakeService.deleteTxnLog(request);
+        } catch (Exception e) {
+            LOG.warn("delete txn log error: " + e.getMessage());
+        }
+    }
+
+    private void deleteTxnLog(List<Long> txnIds, Map<ComputeNode, List<Long>> nodeToTablets) {
+        if (txnIds == null || nodeToTablets.isEmpty()) {
+            return;
+        }
+        // For each partition, send a delete request to all the tablets in the partition
+        for (Map.Entry<ComputeNode, List<Long>> entry : nodeToTablets.entrySet()) {
+            ComputeNode node = entry.getKey();
+            DeleteTxnLogRequest request = new DeleteTxnLogRequest();
+            request.tabletIds = entry.getValue();
+            request.txnIds = txnIds;
+            deleteTxnLogIgnoreError(node, request);
+        }
+    }
+
+    private void deleteCombinedTxnLog(List<Long> txnIds, Map<ComputeNode, List<Long>> nodeToTablets) {
+        if (txnIds == null || nodeToTablets.isEmpty()) {
+            return;
+        }
+        List<TxnInfoPB> txnInfoPBList = new ArrayList<>();
+        for (Long txnId : txnIds) {
+            TxnInfoPB txnInfoPB = new TxnInfoPB();
+            txnInfoPB.txnId = txnId;
+            txnInfoPB.combinedTxnLog = true;
+            txnInfoPBList.add(txnInfoPB);
+        }
+        Map.Entry<ComputeNode, List<Long>> entry = nodeToTablets.entrySet().iterator().next();
+        ComputeNode node = entry.getKey();
+        DeleteTxnLogRequest request = new DeleteTxnLogRequest();
+        request.tabletIds = entry.getValue().subList(0, 1);
+        request.txnInfos = txnInfoPBList;
+        deleteTxnLogIgnoreError(node, request);
+    }
+
     private void vacuumPartitionImpl(Database db, OlapTable table, PhysicalPartition partition) {
         List<Tablet> tablets;
         long visibleVersion;
@@ -152,6 +222,9 @@ public class AutovacuumDaemon extends FrontendDaemon {
             }
             nodeToTablets.computeIfAbsent(node, k -> Lists.newArrayList()).add(tablet.getId());
         }
+
+        deleteTxnLog(removeFinishedTransactionsOfPartition(partition.getId()), nodeToTablets);
+        deleteCombinedTxnLog(removeFinishedTransactionsWithCombinedTxnLogOfPartition(partition.getId()), nodeToTablets);
 
         boolean hasError = false;
         long vacuumedFiles = 0;

@@ -57,10 +57,8 @@ import com.starrocks.lake.PartitionPublishVersionData;
 import com.starrocks.lake.TxnInfoHelper;
 import com.starrocks.lake.Utils;
 import com.starrocks.lake.compaction.Quantiles;
-import com.starrocks.proto.DeleteTxnLogRequest;
+import com.starrocks.lake.vacuum.AutovacuumDaemon;
 import com.starrocks.proto.TxnInfoPB;
-import com.starrocks.rpc.BrpcProxy;
-import com.starrocks.rpc.LakeService;
 import com.starrocks.scheduler.Constants;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
@@ -101,7 +99,6 @@ public class PublishVersionDaemon extends FrontendDaemon {
     private static final int LAKE_PUBLISH_MAX_QUEUE_SIZE = 4096;
 
     private ThreadPoolExecutor lakeTaskExecutor;
-    private ThreadPoolExecutor deleteTxnLogExecutor;
     private Set<Long> publishingLakeTransactions;
 
     @VisibleForTesting
@@ -241,26 +238,6 @@ public class PublishVersionDaemon extends FrontendDaemon {
                     .registerListener(() -> this.adjustLakeTaskExecutor());
         }
         return lakeTaskExecutor;
-    }
-
-    private @NotNull ThreadPoolExecutor getDeleteTxnLogExecutor() {
-        if (deleteTxnLogExecutor == null) {
-            // Create a new thread for every task if there is no idle threads available.
-            // Idle threads will be cleaned after `KEEP_ALIVE_TIME` seconds, which is 60 seconds by default.
-            int numThreads = Math.max(Config.lake_publish_delete_txnlog_max_threads, 1);
-            deleteTxnLogExecutor = ThreadPoolManager.newDaemonCacheThreadPool(numThreads,
-                    "lake-publish-delete-txnLog", true);
-
-            // register ThreadPool config change listener
-            GlobalStateMgr.getCurrentState().getConfigRefreshDaemon().registerListener(() -> {
-                int newMaxThreads = Config.lake_publish_delete_txnlog_max_threads;
-                if (deleteTxnLogExecutor != null && newMaxThreads > 0
-                        && deleteTxnLogExecutor.getMaximumPoolSize() != newMaxThreads) {
-                    deleteTxnLogExecutor.setMaximumPoolSize(Config.lake_publish_delete_txnlog_max_threads);
-                }
-            });
-        }
-        return deleteTxnLogExecutor;
     }
 
     private @NotNull Set<Long> getPublishingLakeTransactions() {
@@ -564,7 +541,6 @@ public class PublishVersionDaemon extends FrontendDaemon {
 
                 Quantiles quantiles = Quantiles.compute(compactionScores.values());
                 stateBatch.setCompactionScore(tableId, partitionId, quantiles);
-                stateBatch.putBeTablets(partitionId, nodeToTablets);
             }
         } catch (Exception e) {
             LOG.error("Fail to publish partition {} of txnIds {}:", partitionId,
@@ -575,73 +551,10 @@ public class PublishVersionDaemon extends FrontendDaemon {
         return true;
     }
 
-    private void deleteTxnLogIgnoreError(ComputeNode node, DeleteTxnLogRequest request) {
-        try {
-            LakeService lakeService = BrpcProxy.getLakeService(node.getHost(), node.getBrpcPort());
-            // just ignore the response, for we don't care the result of delete txn log
-            // and vacuum will clan the txn log finally if it failed.
-            lakeService.deleteTxnLog(request);
-        } catch (Exception e) {
-            LOG.warn("delete txn log error: " + e.getMessage());
-        }
-    }
-
-    private Runnable getDeleteTxnLogTask(TransactionStateBatch batch, List<Long> txnIds) {
-        return () -> {
-            // For each partition, send a delete request to all the tablets in the partition
-            for (Map.Entry<Long, Map<ComputeNode, Set<Long>>> entry : batch.getPartitionToTablets().entrySet()) {
-                Map<ComputeNode, Set<Long>> nodeToTablets = entry.getValue();
-                for (Map.Entry<ComputeNode, Set<Long>> entryItem : nodeToTablets.entrySet()) {
-                    ComputeNode node = entryItem.getKey();
-                    DeleteTxnLogRequest request = new DeleteTxnLogRequest();
-                    request.tabletIds = new ArrayList<>(entryItem.getValue());
-                    request.txnIds = txnIds;
-                    deleteTxnLogIgnoreError(node, request);
-                }
-            }
-        };
-    }
-
-    private Runnable getDeleteCombinedTxnLogTask(TransactionStateBatch batch, List<Long> txnIds) {
-        return () -> {
-            List<TxnInfoPB> txnInfoPBList = new ArrayList<>();
-            for (Long txnId : txnIds) {
-                TxnInfoPB txnInfoPB = new TxnInfoPB();
-                txnInfoPB.txnId = txnId;
-                txnInfoPB.combinedTxnLog = true;
-                txnInfoPBList.add(txnInfoPB);
-            }
-            // For each partition, send a delete request to any tablet in the partition
-            for (Map.Entry<Long, Map<ComputeNode, Set<Long>>> entry : batch.getPartitionToTablets().entrySet()) {
-                Map.Entry<ComputeNode, Set<Long>> entryItem = entry.getValue().entrySet().iterator().next();
-                ComputeNode node = entryItem.getKey();
-                DeleteTxnLogRequest request = new DeleteTxnLogRequest();
-                request.tabletIds = new ArrayList<>(entryItem.getValue());
-                request.txnInfos = txnInfoPBList;
-                deleteTxnLogIgnoreError(node, request);
-            }
-        };
-    }
-
     private void submitDeleteTxnLogJob(TransactionStateBatch txnStateBatch) {
-        try {
-            List<Long> txnIdsWithNormalTxnLog = new ArrayList<>();
-            List<Long> txnIdsWithCombinedTxnLog = new ArrayList<>();
-            for (TransactionState state : txnStateBatch.getTransactionStates()) {
-                if (state.isUseCombinedTxnLog()) {
-                    txnIdsWithCombinedTxnLog.add(state.getTransactionId());
-                } else {
-                    txnIdsWithNormalTxnLog.add(state.getTransactionId());
-                }
-            }
-            if (!txnIdsWithNormalTxnLog.isEmpty()) {
-                getDeleteTxnLogExecutor().submit(getDeleteTxnLogTask(txnStateBatch, txnIdsWithNormalTxnLog));
-            }
-            if (!txnIdsWithCombinedTxnLog.isEmpty()) {
-                getDeleteTxnLogExecutor().submit(getDeleteCombinedTxnLogTask(txnStateBatch, txnIdsWithCombinedTxnLog));
-            }
-        } catch (Exception e) {
-            LOG.warn("delete txn log error: " + e.getMessage());
+        AutovacuumDaemon autovacuumDaemon = GlobalStateMgr.getCurrentState().getAutovacuumDaemon();
+        for (TransactionState txnState : txnStateBatch.getTransactionStates()) {
+            autovacuumDaemon.addFinishedTransaction(txnState);
         }
     }
 

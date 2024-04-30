@@ -2501,4 +2501,8 @@ public class GlobalStateMgr {
     public MetaRecoveryDaemon getMetaRecoveryDaemon() {
         return metaRecoveryDaemon;
     }
+
+    public AutovacuumDaemon getAutovacuumDaemon() {
+        return autovacuumDaemon;
+    }
 }
