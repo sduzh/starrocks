@@ -51,6 +51,7 @@ import com.starrocks.common.util.TimeUtils;
 import com.starrocks.persist.gson.GsonPostProcessable;
 import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.persist.gson.GsonUtils;
+import com.starrocks.proto.ColumnPB;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.ast.ColumnDef;
@@ -417,6 +418,13 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         tColumn.setCol_unique_id(uniqueId);
 
         return tColumn;
+    }
+
+    public ColumnPB toProtobuf() {
+        ColumnPB columnPB = new ColumnPB();
+        columnPB.name = this.columnId.getId();
+        columnPB.indexLength = this.getOlapColumnIndexSize();
+        columnPB.type  = null; // TODO
     }
 
     public void checkSchemaChangeAllowed(Column other) throws DdlException {

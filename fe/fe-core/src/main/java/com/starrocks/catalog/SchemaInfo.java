@@ -17,6 +17,8 @@ package com.starrocks.catalog;
 import com.google.common.base.Preconditions;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.alter.SchemaChangeHandler;
+import com.starrocks.proto.ColumnPB;
+import com.starrocks.proto.TabletSchemaPB;
 import com.starrocks.thrift.TColumn;
 import com.starrocks.thrift.TOlapTableIndex;
 import com.starrocks.thrift.TStorageType;
@@ -155,6 +157,45 @@ public class SchemaInfo {
             tSchema.setBloom_filter_fpp(bloomFilterFpp);
         }
         return tSchema;
+    }
+
+    public TabletSchemaPB toTabletSchemaPB() {
+        TabletSchemaPB schemaPB = new TabletSchemaPB();
+        schemaPB.numShortKeyColumns = (int) shortKeyColumnCount;
+        schemaPB.keysType = keysType.toProtobuf();
+        //tSchema.setStorage_type(storageType);
+        schemaPB.id = id;
+        schemaPB.schemaVersion = version;
+        //tSchema.setSchema_hash(schemaHash);
+        schemaPB.column = new ArrayList<>();
+        for (Column column : columns) {
+            TColumn tColumn = column.toThrift();
+            // is bloom filter column
+            if (bloomFilterColumnNames != null && bloomFilterColumnNames.contains(column.getName())) {
+                tColumn.setIs_bloom_filter_column(true);
+            }
+            // when doing schema change, some modified column has a prefix in name.
+            // this prefix is only used in FE, not visible to BE, so we should remove this prefix.
+            if (column.getName().startsWith(SchemaChangeHandler.SHADOW_NAME_PREFIX)) {
+                tColumn.setColumn_name(column.getName().substring(SchemaChangeHandler.SHADOW_NAME_PREFIX.length()));
+            }
+            tColumns.add(tColumn);
+        }
+        schemaPB.sortKeyIdxes = sortKeyIndexes;
+        schemaPB.sortKeyUniqueIds = sortKeyUniqueIds;
+
+        if (CollectionUtils.isNotEmpty(indexes)) {
+            List<TOlapTableIndex> tIndexes = new ArrayList<>();
+            for (Index index : indexes) {
+                tIndexes.add(index.toThrift());
+            }
+            tSchema.setIndexes(tIndexes);
+        }
+
+        if (bloomFilterColumnNames != null) {
+            schemaPB.bfFpp = bloomFilterFpp;
+        }
+        return schemaPB;
     }
 
     public static Builder newBuilder() {

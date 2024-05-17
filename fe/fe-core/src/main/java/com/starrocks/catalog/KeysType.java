@@ -67,6 +67,21 @@ public enum KeysType {
         }
     }
 
+    public com.starrocks.proto.KeysType toProtobuf() {
+        switch (this) {
+            case PRIMARY_KEYS:
+                return com.starrocks.proto.KeysType.PRIMARY_KEYS;
+            case DUP_KEYS:
+                return com.starrocks.proto.KeysType.DUP_KEYS;
+            case UNIQUE_KEYS:
+                return com.starrocks.proto.KeysType.UNIQUE_KEYS;
+            case AGG_KEYS:
+                return com.starrocks.proto.KeysType.AGG_KEYS;
+            default:
+                return null;
+        }
+    }
+
     public static KeysType fromThrift(TKeysType tKeysType) {
         switch (tKeysType) {
             case PRIMARY_KEYS:
