@@ -41,6 +41,8 @@ public:
 
     virtual const char* type() const { return "Unknown"; }
 
+    virtual void print_Topology(std::ostream& os){};
+
     // Fetch records from |this| iterator into |chunk|.
     //
     // REQUIRES: |chunk| is not null and is empty. the type of each column in |chunk| must

@@ -72,6 +72,11 @@ public:
         return Status::OK();
     }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "\n";
+        _iter->print_Topology(os);
+    }
+
 private:
     Status do_get_next(Chunk* chunk) override {
         SCOPED_RAW_TIMER(&_cost);

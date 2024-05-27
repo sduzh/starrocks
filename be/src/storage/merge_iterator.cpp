@@ -174,6 +174,13 @@ public:
         return Status::OK();
     }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "(#children=" << _children.size() << ")\n";
+        if (!_children.empty()) {
+            _children[0]->print_Topology(os);
+        }
+    }
+
 protected:
     Status init();
     void close_child(size_t child);
@@ -228,6 +235,7 @@ public:
     bool need_rssid_rowids = false;
 
     const char* type() const override { return "HeapMergeIterator"; }
+
 
 protected:
     Status do_get_next(Chunk* chunk, std::vector<RowSourceMask>* source_masks,

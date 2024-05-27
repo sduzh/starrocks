@@ -59,6 +59,12 @@ public:
         return Status::OK();
     }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "(#children=" << _children.size() << ")\n";
+        if (!_children.empty()) {
+            _children[0]->print_Topology(os);
+        }
+    }
 protected:
     Status do_get_next(Chunk* chunk) override;
     Status do_get_next(Chunk* chunk, std::vector<uint32_t>* rowid) override;

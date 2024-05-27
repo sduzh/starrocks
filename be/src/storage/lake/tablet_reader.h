@@ -83,6 +83,10 @@ public:
 
     void get_split_tasks(std::vector<pipeline::ScanSplitContextPtr>* split_tasks) { split_tasks->swap(_split_tasks); }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "\n";
+        _collect_iter->print_Topology(os);
+    }
 protected:
     Status do_get_next(Chunk* chunk) override;
     Status do_get_next(Chunk* chunk, std::vector<uint64_t>* rssid_rowids) override;

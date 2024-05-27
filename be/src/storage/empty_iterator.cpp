@@ -24,6 +24,10 @@ public:
 
     void close() override {}
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "\n";
+    }
+
 protected:
     Status do_get_next(Chunk* chunk) override { return Status::EndOfFile("end of empty iterator"); }
     Status do_get_next(Chunk* chunk, std::vector<uint32_t>* rowid) override {

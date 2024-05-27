@@ -78,6 +78,11 @@ public:
         return Status::OK();
     }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "\n";
+        _child->print_Topology(os);
+    }
+
 protected:
     Status do_get_next(Chunk* chunk) override { return do_get_next(chunk, nullptr); }
     Status do_get_next(Chunk* chunk, std::vector<RowSourceMask>* source_masks) override;

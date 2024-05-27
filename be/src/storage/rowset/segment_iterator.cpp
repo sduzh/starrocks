@@ -110,6 +110,9 @@ public:
 
     const char* type() const override { return "SegmentIterator"; }
 
+    void print_Topology(std::ostream& os) override {
+        os << type() << "\n";
+    }
 protected:
     Status do_get_next(Chunk* chunk) override;
     Status do_get_next(Chunk* chunk, vector<uint32_t>* rowid) override;
